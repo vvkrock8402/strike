@@ -31,8 +31,19 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
 
   const tokenTotal = getTokenTotal(squad)
   const isInitialSetup = squad.length < 11
+  const overBudget = tokenTotal > 110
   const composition = validateSquadComposition(squad)
   const squadIds = new Set(squad.map(p => p.id))
+
+  async function clearTeam() {
+    if (!confirm('Clear your entire squad and start over?')) return
+    const res = await fetch('/api/squad/clear', { method: 'POST' })
+    if (res.ok) {
+      setSquad([])
+      setPlayerOut(null)
+      setError(null)
+    }
+  }
 
   const filteredPlayers = allPlayers.filter(
     p => !squadIds.has(p.id) && (filter === 'all' || p.role === filter)
@@ -109,10 +120,26 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
             Your Squad{' '}
             <span className="text-gray-400 font-normal text-sm">({squad.length}/11)</span>
           </h2>
-          <span className={`text-sm font-medium ${tokenTotal > 110 ? 'text-red-400' : 'text-gray-400'}`}>
-            {tokenTotal} / 110 Cr
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium ${overBudget ? 'text-red-400' : 'text-gray-400'}`}>
+              {tokenTotal} / 110 Cr
+            </span>
+            {squad.length > 0 && (
+              <button
+                onClick={clearTeam}
+                className="text-xs text-red-400 hover:text-red-300 border border-red-800 hover:border-red-600 px-2 py-1 rounded-lg transition-colors"
+              >
+                Clear Team
+              </button>
+            )}
+          </div>
         </div>
+
+        {overBudget && (
+          <div className="mb-3 p-3 bg-red-950 border border-red-800 rounded-lg text-xs text-red-300">
+            Your squad exceeds the 110 Cr limit. Clear your team and rebuild, or swap out expensive players.
+          </div>
+        )}
 
         {playerOut && (
           <div className="mb-3 p-3 bg-red-950 border border-red-800 rounded-lg text-sm text-red-300 flex items-center justify-between">
