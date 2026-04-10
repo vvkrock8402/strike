@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import TransferPanel from '@/components/TransferPanel'
+import MatchCountdown from '@/components/MatchCountdown'
 import type { Player } from '@/lib/types'
 
 export default async function TransfersPage() {
@@ -12,6 +13,14 @@ export default async function TransfersPage() {
     .from('matches')
     .select('id, team_a, team_b')
     .eq('status', 'live')
+    .maybeSingle()
+
+  const { data: nextMatch } = await supabase
+    .from('matches')
+    .select('id, team_a, team_b, match_date')
+    .eq('status', 'upcoming')
+    .order('match_date', { ascending: true })
+    .limit(1)
     .maybeSingle()
 
   const { data: squad } = await supabase
@@ -55,7 +64,7 @@ export default async function TransfersPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Transfers</h1>
           {isFirstMatch && (
@@ -69,6 +78,14 @@ export default async function TransfersPage() {
           <p className="text-white font-bold text-xl">{transfersRemaining} / 220</p>
         </div>
       </div>
+
+      {nextMatch && (
+        <MatchCountdown
+          matchDate={nextMatch.match_date}
+          teamA={nextMatch.team_a}
+          teamB={nextMatch.team_b}
+        />
+      )}
 
       <TransferPanel
         allPlayers={allPlayers ?? []}

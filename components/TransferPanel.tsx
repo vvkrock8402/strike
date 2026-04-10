@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PlayerCard from './PlayerCard'
+import PitchView from './PitchView'
 import type { Player, PlayerRole } from '@/lib/types'
 import { getTokenTotal, validateSquadComposition } from '@/lib/squad'
 
@@ -14,6 +15,12 @@ interface Props {
 }
 
 const roles: PlayerRole[] = ['keeper', 'batsman', 'allrounder', 'bowler']
+const roleLabels: Record<PlayerRole, string> = {
+  keeper: 'WK',
+  batsman: 'BAT',
+  allrounder: 'ALL',
+  bowler: 'BOWL',
+}
 
 export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }: Props) {
   const router = useRouter()
@@ -27,11 +34,27 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
   const composition = validateSquadComposition(squad)
   const squadIds = new Set(squad.map(p => p.id))
 
-  const filteredPlayers = allPlayers.filter(p =>
-    !squadIds.has(p.id) && (filter === 'all' || p.role === filter)
+  const filteredPlayers = allPlayers.filter(
+    p => !squadIds.has(p.id) && (filter === 'all' || p.role === filter)
   )
 
-  async function handlePlayerClick(player: Player) {
+  async function handlePitchClick(player: Player) {
+    setError(null)
+    if (isInitialSetup) {
+      // Remove from squad during initial setup
+      const res = await fetch('/api/squad/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerOutId: player.id, isFirstMatch: true, remove: true }),
+      })
+      if (res.ok) setSquad(prev => prev.filter(p => p.id !== player.id))
+      return
+    }
+    // Select player to transfer out
+    setPlayerOut(prev => (prev?.id === player.id ? null : player))
+  }
+
+  async function handleAvailableClick(player: Player) {
     setError(null)
 
     if (isInitialSetup) {
@@ -52,9 +75,7 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
     }
 
     if (!playerOut) {
-      if (squadIds.has(player.id)) {
-        setPlayerOut(player)
-      }
+      setError('First tap a player on the pitch to transfer out, then pick a replacement here.')
       return
     }
 
@@ -74,35 +95,43 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
       return
     }
 
-    setSquad(prev => prev.map(p => p.id === playerOut.id ? player : p))
+    setSquad(prev => prev.map(p => (p.id === playerOut.id ? player : p)))
     setPlayerOut(null)
     router.refresh()
   }
 
-  function removeFromSquad(player: Player) {
-    setSquad(prev => prev.filter(p => p.id !== player.id))
-  }
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+      {/* Pitch view */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">
-            Your Squad ({squad.length}/11)
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-white font-semibold">
+            Your Squad{' '}
+            <span className="text-gray-400 font-normal text-sm">({squad.length}/11)</span>
           </h2>
           <span className={`text-sm font-medium ${tokenTotal > 110 ? 'text-red-400' : 'text-gray-400'}`}>
-            {tokenTotal}/110 tokens
+            {tokenTotal} / 110 Cr
           </span>
         </div>
 
         {playerOut && (
-          <div className="mb-3 p-3 bg-red-950 border border-red-800 rounded-lg text-sm text-red-300">
-            Selling: <strong>{playerOut.name}</strong> — click a player on the right to buy
-            <button onClick={() => setPlayerOut(null)} className="ml-2 text-red-400 hover:text-red-300">✕</button>
+          <div className="mb-3 p-3 bg-red-950 border border-red-800 rounded-lg text-sm text-red-300 flex items-center justify-between">
+            <span>
+              Transferring out: <strong>{playerOut.name}</strong> — pick a replacement →
+            </span>
+            <button onClick={() => setPlayerOut(null)} className="text-red-400 hover:text-red-200 ml-2">✕</button>
           </div>
         )}
 
-        {error && <p className="mb-3 text-red-400 text-sm">{error}</p>}
+        {isInitialSetup && (
+          <div className="mb-3 p-3 bg-blue-950 border border-blue-800 rounded-lg text-xs text-blue-300">
+            Tap a player on the right to add. Tap a player on the pitch to remove.
+          </div>
+        )}
+
+        {error && (
+          <p className="mb-3 text-red-400 text-sm">{error}</p>
+        )}
 
         {!composition.valid && squad.length === 11 && (
           <div className="mb-3 p-3 bg-yellow-950 border border-yellow-800 rounded-lg">
@@ -112,22 +141,11 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
           </div>
         )}
 
-        <div className="space-y-2">
-          {squad.map(player => (
-            <PlayerCard
-              key={player.id}
-              player={player}
-              selected={playerOut?.id === player.id}
-              onClick={() => isInitialSetup ? removeFromSquad(player) : handlePlayerClick(player)}
-              showSelect={false}
-            />
-          ))}
-          {squad.length === 0 && (
-            <p className="text-gray-600 text-sm text-center py-8">
-              Click players on the right to add them to your squad
-            </p>
-          )}
-        </div>
+        <PitchView
+          players={squad}
+          selectedPlayer={playerOut}
+          onPlayerClick={handlePitchClick}
+        />
 
         {squad.length === 11 && composition.valid && (
           <button
@@ -139,22 +157,24 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
         )}
       </div>
 
+      {/* Available players */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Available Players</h2>
-          <div className="flex gap-1">
-            {(['all', ...roles] as const).map(r => (
-              <button
-                key={r}
-                onClick={() => setFilter(r)}
-                className={`text-xs px-2 py-1 rounded-lg capitalize transition-colors ${
-                  filter === r ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-white font-semibold">Available Players</h2>
+        </div>
+
+        <div className="flex gap-1 mb-3 flex-wrap">
+          {(['all', ...roles] as const).map(r => (
+            <button
+              key={r}
+              onClick={() => setFilter(r)}
+              className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${
+                filter === r ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              {r === 'all' ? 'All' : roleLabels[r]}
+            </button>
+          ))}
         </div>
 
         <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
@@ -162,11 +182,14 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
             <PlayerCard
               key={player.id}
               player={player}
-              onClick={() => handlePlayerClick(player)}
+              onClick={() => handleAvailableClick(player)}
               showSelect
               selected={false}
             />
           ))}
+          {filteredPlayers.length === 0 && (
+            <p className="text-gray-600 text-sm text-center py-8">No players available</p>
+          )}
         </div>
       </div>
     </div>
