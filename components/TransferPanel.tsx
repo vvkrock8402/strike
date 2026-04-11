@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import PlayerCard from './PlayerCard'
 import PitchView from './PitchView'
@@ -24,12 +24,36 @@ const roleLabels: Record<PlayerRole, string> = {
   bowler: 'BOWL',
 }
 
+const ALL_TEAMS = ['CSK', 'DC', 'GT', 'KKR', 'LSG', 'MI', 'PBKS', 'RCB', 'RR', 'SRH']
+
 export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch, captainId, viceCaptainId }: Props) {
   const router = useRouter()
   const [squad, setSquad] = useState<Player[]>(currentSquad)
   const [playerOut, setPlayerOut] = useState<Player | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<PlayerRole | 'all'>('all')
+  const [teamFilter, setTeamFilter] = useState<Set<string>>(new Set())
+  const [teamDropdownOpen, setTeamDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setTeamDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  function toggleTeam(team: string) {
+    setTeamFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(team)) next.delete(team)
+      else next.add(team)
+      return next
+    })
+  }
 
   const tokenTotal = getTokenTotal(squad)
   const isInitialSetup = squad.length < 11
@@ -47,8 +71,10 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch, 
     }
   }
 
-  const filteredPlayers = allPlayers.filter(
-    p => !squadIds.has(p.id) && (filter === 'all' || p.role === filter)
+  const filteredPlayers = allPlayers.filter(p =>
+    !squadIds.has(p.id) &&
+    (filter === 'all' || p.role === filter) &&
+    (teamFilter.size === 0 || teamFilter.has(p.ipl_team))
   )
 
   async function handlePitchClick(player: Player) {
@@ -192,6 +218,59 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch, 
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-white font-semibold">Available Players</h2>
+
+          {/* Team filter dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setTeamDropdownOpen(o => !o)}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                teamFilter.size > 0
+                  ? 'bg-blue-600 border-blue-500 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18M7 8h10M11 12h2" />
+              </svg>
+              Teams{teamFilter.size > 0 ? ` (${teamFilter.size})` : ''}
+            </button>
+
+            {teamDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1 z-30 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-2 w-44">
+                <div className="flex items-center justify-between px-2 py-1 mb-1">
+                  <span className="text-gray-400 text-[11px] font-semibold uppercase tracking-wide">Filter by team</span>
+                  {teamFilter.size > 0 && (
+                    <button
+                      onClick={() => setTeamFilter(new Set())}
+                      className="text-[11px] text-blue-400 hover:text-blue-300"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {ALL_TEAMS.map(team => (
+                  <button
+                    key={team}
+                    onClick={() => toggleTeam(team)}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${
+                      teamFilter.has(team) ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    <span className={`w-4 h-4 rounded flex items-center justify-center border flex-shrink-0 ${
+                      teamFilter.has(team) ? 'bg-blue-600 border-blue-500' : 'border-gray-600'
+                    }`}>
+                      {teamFilter.has(team) && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </span>
+                    {team}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-1 mb-3 flex-wrap">
