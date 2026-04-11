@@ -37,6 +37,15 @@ export default async function DashboardPage() {
     .limit(1)
     .maybeSingle()
 
+  const { data: lastMatch } = await supabase
+    .from('matches')
+    .select('id, team_a, team_b, result')
+    .eq('status', 'completed')
+    .not('result', 'is', null)
+    .order('match_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   const { data: squadPlayers } = await supabase
     .from('squad_players')
     .select('player_id, players(*)')
@@ -77,6 +86,14 @@ export default async function DashboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+      {lastMatch?.result && (
+        <div className="bg-green-950 border border-green-800 rounded-xl px-5 py-4">
+          <p className="text-green-400 text-xs font-semibold uppercase tracking-widest mb-1">
+            Match Result — {lastMatch.team_a} vs {lastMatch.team_b}
+          </p>
+          <p className="text-white font-bold text-lg">{lastMatch.result}</p>
+        </div>
+      )}
       <MatchStatus initialMatch={nextMatch ?? null} />
       <LivePoints initialPlayers={playersWithData} matchId={nextMatch?.id ?? null} />
 

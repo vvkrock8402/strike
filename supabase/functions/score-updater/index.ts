@@ -8,34 +8,27 @@ const supabase = createClient(
 const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY')!
 const RAPIDAPI_HOST = Deno.env.get('RAPIDAPI_HOST') ?? 'cricbuzz-cricket.p.rapidapi.com'
 
-interface RapidAPIBatsman {
-  batId: number
-  batName: string
+interface Batsman {
+  id: number
+  name: string
   runs: number
   fours: number
   sixes: number
 }
 
-interface RapidAPIBowler {
-  bowlId: number
-  bowlName: string
+interface Bowler {
+  id: number
+  name: string
   wickets: number
 }
 
-interface RapidAPIScorecard {
+interface ScorecardResponse {
+  ismatchcomplete: boolean
+  status: string
   scorecard: Array<{
-    batTeamDetails: {
-      batsmenData: Record<string, RapidAPIBatsman>
-    }
-    bowlTeamDetails: {
-      bowlersData: Record<string, RapidAPIBowler>
-    }
+    batsman: Batsman[]
+    bowler: Bowler[]
   }>
-  matchHeader: {
-    state: string // 'Inprogress' | 'Complete'
-    momId?: number
-    momName?: string
-  }
 }
 
 function computePoints(stats: {
@@ -47,7 +40,6 @@ function computePoints(stats: {
   stumpings: number
   run_outs_direct: number
   run_outs_indirect: number
-  is_motm: boolean
 }): number {
   let pts = 0
   pts += stats.runs * 1
@@ -60,11 +52,10 @@ function computePoints(stats: {
   pts += stats.stumpings * 15
   pts += stats.run_outs_direct * 20
   pts += stats.run_outs_indirect * 10
-  if (stats.is_motm) pts += 75
   return pts
 }
 
-async function fetchScorecard(rapidapiMatchId: string): Promise<RapidAPIScorecard | null> {
+async function fetchScorecard(rapidapiMatchId: string): Promise<ScorecardResponse | null> {
   const url = `https://${RAPIDAPI_HOST}/mcenter/v1/${rapidapiMatchId}/scard`
   const res = await fetch(url, {
     headers: {
@@ -80,15 +71,25 @@ async function fetchScorecard(rapidapiMatchId: string): Promise<RapidAPIScorecar
 }
 
 Deno.serve(async (_req) => {
-  const { data: matches } = await supabase
+  const { data: allMatches } = await supabase
     .from('matches')
     .select('id, rapidapi_match_id, status, match_date')
     .in('status', ['upcoming', 'live'])
     .order('match_date', { ascending: true })
-    .limit(5)
+    .limit(10)
 
-  if (!matches || matches.length === 0) {
-    return new Response(JSON.stringify({ message: 'No active matches' }), {
+  const now = Date.now()
+  const thirtyMin = 30 * 60 * 1000
+
+  // Only poll: live matches (always) + upcoming matches starting within 30 minutes
+  const matches = (allMatches ?? []).filter((m: { status: string; match_date: string }) => {
+    if (m.status === 'live') return true
+    const startsIn = new Date(m.match_date).getTime() - now
+    return startsIn <= thirtyMin
+  })
+
+  if (matches.length === 0) {
+    return new Response(JSON.stringify({ message: 'No matches to poll right now' }), {
       headers: { 'Content-Type': 'application/json' },
     })
   }
@@ -99,17 +100,35 @@ Deno.serve(async (_req) => {
     const scorecard = await fetchScorecard(match.rapidapi_match_id)
     if (!scorecard) continue
 
-    const state = scorecard.matchHeader.state
-    const isLive = state === 'Inprogress'
-    const isComplete = state === 'Complete'
+    const isComplete = scorecard.ismatchcomplete === true
+    const statusText = (scorecard.status ?? '').toLowerCase()
+    const isAbandoned = statusText.includes('abandon') ||
+      statusText.includes('cancel') ||
+      statusText.includes('no result') ||
+      statusText.includes('called off')
+    const hasStarted = (scorecard.scorecard ?? []).some(
+      inn => (inn.batsman ?? []).length > 0
+    )
+    const isLive = !isComplete && !isAbandoned && hasStarted
 
+    // If abandoned/cancelled, mark completed and stop polling
+    if (isAbandoned && match.status !== 'completed') {
+      await supabase
+        .from('matches')
+        .update({ status: 'completed', result: scorecard.status })
+        .eq('id', match.id)
+      results.push(`Match ${match.id}: abandoned/cancelled — marked completed`)
+      continue
+    }
+
+    // Transition upcoming → live
     if (isLive && match.status === 'upcoming') {
       await supabase
         .from('matches')
         .update({ status: 'live' })
         .eq('id', match.id)
 
-      // Snapshot match_selections from squad_players for all users
+      // Snapshot squad_players into match_selections for all squads
       const { data: squads } = await supabase
         .from('squads')
         .select('id')
@@ -145,35 +164,40 @@ Deno.serve(async (_req) => {
       results.push(`Match ${match.id}: set to live, snapshots created`)
     }
 
+    // Transition live → completed
     if (isComplete && match.status === 'live') {
       await supabase
         .from('matches')
-        .update({ status: 'completed' })
+        .update({ status: 'completed', result: scorecard.status })
         .eq('id', match.id)
-      results.push(`Match ${match.id}: set to completed`)
+      results.push(`Match ${match.id}: set to completed — ${scorecard.status}`)
     }
 
-    // Parse batting stats
+    // Parse batting stats (accumulate across both innings per player)
     const battingStats: Record<string, { runs: number; fours: number; sixes: number }> = {}
     for (const innings of scorecard.scorecard ?? []) {
-      for (const batsman of Object.values(innings.batTeamDetails.batsmenData)) {
-        battingStats[batsman.batId] = {
-          runs: batsman.runs ?? 0,
-          fours: batsman.fours ?? 0,
-          sixes: batsman.sixes ?? 0,
+      for (const batsman of innings.batsman ?? []) {
+        const key = batsman.id.toString()
+        if (!battingStats[key]) {
+          battingStats[key] = { runs: 0, fours: 0, sixes: 0 }
         }
+        battingStats[key].runs += batsman.runs ?? 0
+        battingStats[key].fours += batsman.fours ?? 0
+        battingStats[key].sixes += batsman.sixes ?? 0
       }
     }
 
     // Parse bowling stats
     const bowlingStats: Record<string, { wickets: number }> = {}
     for (const innings of scorecard.scorecard ?? []) {
-      for (const bowler of Object.values(innings.bowlTeamDetails.bowlersData)) {
-        bowlingStats[bowler.bowlId] = { wickets: bowler.wickets ?? 0 }
+      for (const bowler of innings.bowler ?? []) {
+        const key = bowler.id.toString()
+        if (!bowlingStats[key]) {
+          bowlingStats[key] = { wickets: 0 }
+        }
+        bowlingStats[key].wickets += bowler.wickets ?? 0
       }
     }
-
-    const momId = scorecard.matchHeader.momId
 
     const { data: players } = await supabase
       .from('players')
@@ -188,7 +212,6 @@ Deno.serve(async (_req) => {
     for (const [rapidId, internalId] of playerMap) {
       const batting = battingStats[rapidId] ?? { runs: 0, fours: 0, sixes: 0 }
       const bowling = bowlingStats[rapidId] ?? { wickets: 0 }
-      const is_motm = momId?.toString() === rapidId
 
       const stats = {
         match_id: match.id,
@@ -201,7 +224,7 @@ Deno.serve(async (_req) => {
         stumpings: 0,
         run_outs_direct: 0,
         run_outs_indirect: 0,
-        is_motm,
+        is_motm: false,
         total_points: 0,
       }
 
