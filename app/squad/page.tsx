@@ -19,10 +19,16 @@ export default async function SquadPage() {
 
   if (!squad) redirect('/transfers')
 
-  const { data: nextMatch } = await supabase
+  const { data: liveMatch } = await supabase
+    .from('matches')
+    .select('id, team_a, team_b, status')
+    .eq('status', 'live')
+    .maybeSingle()
+
+  const { data: nextUpcomingMatch } = await supabase
     .from('matches')
     .select('id, team_a, team_b, match_date, status')
-    .in('status', ['upcoming', 'live'])
+    .eq('status', 'upcoming')
     .order('match_date', { ascending: true })
     .limit(1)
     .maybeSingle()
@@ -35,12 +41,13 @@ export default async function SquadPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const players = (squadPlayers ?? []).map((sp: any) => sp.players as Player)
 
-  const { data: selections } = nextMatch
+  // C/VC always for the UPCOMING match (never the live one — that's already snapshotted)
+  const { data: selections } = nextUpcomingMatch
     ? await supabase
         .from('match_selections')
         .select('player_id, is_captain, is_vice_captain')
         .eq('squad_id', squad.id)
-        .eq('match_id', nextMatch.id)
+        .eq('match_id', nextUpcomingMatch.id)
     : { data: [] }
 
   const selectionMap = new Map(
@@ -68,25 +75,30 @@ export default async function SquadPage() {
         </Link>
       </div>
 
-      {nextMatch && (
+      {liveMatch && (
+        <div className="mb-4 p-4 bg-red-950 border border-red-800 rounded-xl">
+          <p className="text-red-400 text-xs font-semibold uppercase tracking-wide mb-1">● Live Now</p>
+          <p className="text-white font-semibold">{liveMatch.team_a} vs {liveMatch.team_b}</p>
+          <p className="text-red-300 text-xs mt-1">Your squad for this match is locked. Edit below for the next match.</p>
+        </div>
+      )}
+
+      {nextUpcomingMatch && (
         <div className="mb-6 p-4 bg-gray-900 border border-gray-800 rounded-xl">
-          <p className="text-gray-400 text-xs mb-1">Next Match</p>
+          <p className="text-gray-400 text-xs mb-1">Next Match — set your C / VC</p>
           <p className="text-white font-semibold">
-            {nextMatch.team_a} vs {nextMatch.team_b}
+            {nextUpcomingMatch.team_a} vs {nextUpcomingMatch.team_b}
           </p>
           <p className="text-gray-500 text-xs mt-1">
-            {new Date(nextMatch.match_date).toLocaleString()}
-            {nextMatch.status === 'live' && (
-              <span className="ml-2 text-red-400 font-medium">● LIVE</span>
-            )}
+            {new Date(nextUpcomingMatch.match_date).toLocaleString()}
           </p>
         </div>
       )}
 
       <SquadGrid
         players={playersWithCaptain}
-        matchId={nextMatch?.id ?? null}
-        matchLocked={nextMatch?.status === 'live' || nextMatch?.status === 'completed'}
+        matchId={nextUpcomingMatch?.id ?? null}
+        matchLocked={!nextUpcomingMatch}
         tokenTotal={tokenTotal}
         transfersRemaining={transfersRemaining}
       />

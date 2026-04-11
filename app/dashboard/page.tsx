@@ -56,40 +56,70 @@ export default async function DashboardPage() {
     .limit(1)
     .maybeSingle()
 
-  const { data: squadPlayers } = await supabase
-    .from('squad_players')
-    .select('player_id, players(*)')
-    .eq('squad_id', squad.id)
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const players = (squadPlayers ?? []).map((sp: any) => sp.players as Player)
-
   type PlayerWithData = Player & { is_captain: boolean; is_vice_captain: boolean; points?: PlayerMatchPoints }
-  let playersWithData: PlayerWithData[] = players.map(p => ({ ...p, is_captain: false, is_vice_captain: false }))
+  let playersWithData: PlayerWithData[] = []
 
-  if (nextMatch) {
-    const [{ data: selections }, { data: points }] = await Promise.all([
-      supabase
-        .from('match_selections')
-        .select('player_id, is_captain, is_vice_captain')
-        .eq('squad_id', squad.id)
-        .eq('match_id', nextMatch.id),
-      supabase
-        .from('player_match_points')
-        .select('*')
-        .eq('match_id', nextMatch.id)
-        .in('player_id', players.map(p => p.id)),
-    ])
+  if (nextMatch?.status === 'live') {
+    // Live match: read the snapshotted match_selections (not squad_players)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: liveSelections } = await supabase
+      .from('match_selections')
+      .select('player_id, is_captain, is_vice_captain, players(*)')
+      .eq('squad_id', squad.id)
+      .eq('match_id', nextMatch.id)
 
-    const selMap = new Map((selections ?? []).map((s: { player_id: string; is_captain: boolean; is_vice_captain: boolean }) => [s.player_id, s]))
+    const playerIds = (liveSelections ?? []).map((s: { player_id: string }) => s.player_id)
+    const { data: points } = playerIds.length > 0
+      ? await supabase
+          .from('player_match_points')
+          .select('*')
+          .eq('match_id', nextMatch.id)
+          .in('player_id', playerIds)
+      : { data: [] }
+
     const ptMap = new Map((points ?? []).map((pt: PlayerMatchPoints) => [pt.player_id, pt]))
-
-    playersWithData = players.map(p => ({
-      ...p,
-      is_captain: selMap.get(p.id)?.is_captain ?? false,
-      is_vice_captain: selMap.get(p.id)?.is_vice_captain ?? false,
-      points: ptMap.get(p.id),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    playersWithData = (liveSelections ?? []).map((s: any) => ({
+      ...(s.players as Player),
+      is_captain: s.is_captain,
+      is_vice_captain: s.is_vice_captain,
+      points: ptMap.get(s.player_id),
     }))
+  } else {
+    // Upcoming or no match: use squad_players
+    const { data: squadPlayers } = await supabase
+      .from('squad_players')
+      .select('player_id, players(*)')
+      .eq('squad_id', squad.id)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const players = (squadPlayers ?? []).map((sp: any) => sp.players as Player)
+    playersWithData = players.map(p => ({ ...p, is_captain: false, is_vice_captain: false }))
+
+    if (nextMatch) {
+      const [{ data: selections }, { data: points }] = await Promise.all([
+        supabase
+          .from('match_selections')
+          .select('player_id, is_captain, is_vice_captain')
+          .eq('squad_id', squad.id)
+          .eq('match_id', nextMatch.id),
+        supabase
+          .from('player_match_points')
+          .select('*')
+          .eq('match_id', nextMatch.id)
+          .in('player_id', players.map(p => p.id)),
+      ])
+
+      const selMap = new Map((selections ?? []).map((s: { player_id: string; is_captain: boolean; is_vice_captain: boolean }) => [s.player_id, s]))
+      const ptMap = new Map((points ?? []).map((pt: PlayerMatchPoints) => [pt.player_id, pt]))
+
+      playersWithData = players.map(p => ({
+        ...p,
+        is_captain: selMap.get(p.id)?.is_captain ?? false,
+        is_vice_captain: selMap.get(p.id)?.is_vice_captain ?? false,
+        points: ptMap.get(p.id),
+      }))
+    }
   }
 
   const { data: leaderboard } = await supabase.rpc('get_season_leaderboard')
