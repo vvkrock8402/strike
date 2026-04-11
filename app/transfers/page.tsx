@@ -46,7 +46,7 @@ export default async function TransfersPage() {
     .order('token_value', { ascending: false })
 
   const transfersRemaining = squad ? 220 - squad.transfers_used : 220
-  const isFirstMatch = !squad || squad.transfers_used === 0
+  const isFirstMatch = currentSquad.length < 11
 
   if (liveMatch) {
     return (
