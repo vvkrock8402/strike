@@ -4,6 +4,7 @@ import MatchStatus from '@/components/MatchStatus'
 import LivePoints from '@/components/LivePoints'
 import Link from 'next/link'
 import type { Player, PlayerMatchPoints } from '@/lib/types'
+import DashboardClient from '@/components/DashboardClient'
 
 export default async function DashboardPage() {
   const supabase = createClient()
@@ -84,7 +85,14 @@ export default async function DashboardPage() {
 
   const { data: leaderboard } = await supabase.rpc('get_season_leaderboard')
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
   return (
+    <DashboardClient hasDisplayName={!!profile?.display_name}>
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
       {lastMatch?.result && (
         <div className="bg-green-950 border border-green-800 rounded-xl px-5 py-4">
@@ -103,10 +111,10 @@ export default async function DashboardPage() {
           <Link href="/leaderboard" className="text-blue-400 text-sm hover:text-blue-300">See all →</Link>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          {(leaderboard ?? []).slice(0, 5).map((row: { user_id: string; email: string; total_points: number }, i: number) => (
+          {(leaderboard ?? []).slice(0, 5).map((row: { user_id: string; email: string; display_name?: string | null; total_points: number }, i: number) => (
             <div key={row.user_id} className={`flex items-center px-4 py-3 ${i < 4 ? 'border-b border-gray-800' : ''}`}>
               <span className="text-gray-500 text-sm w-6">{i + 1}</span>
-              <span className="text-white text-sm flex-1 ml-3">{row.email}</span>
+              <span className="text-white text-sm flex-1 ml-3">{row.display_name ?? row.email.split('@')[0]}</span>
               <span className="text-white font-bold text-sm">{row.total_points}</span>
             </div>
           ))}
@@ -116,5 +124,6 @@ export default async function DashboardPage() {
         </div>
       </div>
     </div>
+    </DashboardClient>
   )
 }
