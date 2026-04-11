@@ -46,9 +46,10 @@ interface PlayerCircleProps {
   isCaptain?: boolean
   isViceCaptain?: boolean
   onClick?: () => void
+  scored?: number
 }
 
-function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick }: PlayerCircleProps) {
+function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick, scored }: PlayerCircleProps) {
   const initials = getInitials(player.name)
   const avatarColor = roleAvatarColors[player.role] ?? 'bg-gray-600'
   const badgeColor = teamBadgeColors[player.ipl_team] ?? 'bg-gray-600'
@@ -98,9 +99,15 @@ function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick }: P
       <span className="text-white text-xs font-semibold text-center leading-tight max-w-[72px] truncate drop-shadow">
         {getLastName(player.name)}
       </span>
-      <span className="text-emerald-200 text-[10px] font-medium">
-        {player.token_value} Cr
-      </span>
+      {scored !== undefined ? (
+        <span className={`text-[11px] font-bold ${scored > 0 ? 'text-yellow-300' : 'text-emerald-200/60'}`}>
+          {scored} pts
+        </span>
+      ) : (
+        <span className="text-emerald-200 text-[10px] font-medium">
+          {player.token_value} Cr
+        </span>
+      )}
     </div>
   )
 }
@@ -113,9 +120,10 @@ interface Props {
   onPlayerClick?: (player: Player) => void
   captainId?: string
   viceCaptainId?: string
+  pointsMap?: Record<string, number>
 }
 
-export default function PitchView({ players, selectedPlayer, onPlayerClick, captainId, viceCaptainId }: Props) {
+export default function PitchView({ players, selectedPlayer, onPlayerClick, captainId, viceCaptainId, pointsMap }: Props) {
   const byRole: Record<string, Player[]> = {
     keeper: [],
     batsman: [],
@@ -156,6 +164,7 @@ export default function PitchView({ players, selectedPlayer, onPlayerClick, capt
                       isCaptain={captainId === player.id}
                       isViceCaptain={viceCaptainId === player.id}
                       onClick={() => onPlayerClick?.(player)}
+                      scored={pointsMap ? (pointsMap[player.id] ?? 0) : undefined}
                     />
                   ))}
                 </div>
