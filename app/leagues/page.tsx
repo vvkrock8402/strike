@@ -82,7 +82,7 @@ export default function LeaguesPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <h1 className="text-2xl font-bold text-white mb-8">Private Leagues</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

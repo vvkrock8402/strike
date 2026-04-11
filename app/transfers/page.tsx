@@ -64,7 +64,7 @@ export default async function TransfersPage() {
   const isFirstMatch = currentSquad.length < 11
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Transfers</h1>

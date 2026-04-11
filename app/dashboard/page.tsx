@@ -132,7 +132,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient hasDisplayName={!!profile?.display_name}>
-    <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
       {lastMatch?.result && (
         <div className="bg-green-950 border border-green-800 rounded-xl px-5 py-4">
           <p className="text-green-400 text-xs font-semibold uppercase tracking-widest mb-1">

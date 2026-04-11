@@ -64,11 +64,11 @@ function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick, sco
   return (
     <div
       onClick={onClick}
-      className="flex flex-col items-center gap-1.5 cursor-pointer group select-none"
+      className="flex flex-col items-center gap-1 cursor-pointer group select-none"
     >
       <div className="relative">
         <div
-          className={`w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm transition-all group-hover:scale-110 ${player.image_url ? 'bg-gray-700' : avatarColor} ${ringClass}`}
+          className={`w-11 h-11 sm:w-14 sm:h-14 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-xs sm:text-sm transition-all group-hover:scale-110 ${player.image_url ? 'bg-gray-700' : avatarColor} ${ringClass}`}
         >
           {player.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -79,16 +79,16 @@ function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick, sco
         </div>
         {/* Team badge */}
         <div
-          className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${badgeColor} border-2 border-[#1e5c2a] flex items-center justify-center`}
+          className={`absolute -bottom-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full ${badgeColor} border-2 border-[#1e5c2a] flex items-center justify-center`}
         >
-          <span className="text-white font-bold leading-none" style={{ fontSize: '5px' }}>
+          <span className="text-white font-bold leading-none" style={{ fontSize: '4px' }}>
             {player.ipl_team}
           </span>
         </div>
         {/* Captain / VC badge */}
         {(isCaptain || isViceCaptain) && (
           <div
-            className={`absolute -top-1 -left-1 w-5 h-5 rounded-full border-2 border-[#1e5c2a] flex items-center justify-center text-[9px] font-bold ${
+            className={`absolute -top-1 -left-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-[#1e5c2a] flex items-center justify-center text-[8px] sm:text-[9px] font-bold ${
               isCaptain ? 'bg-yellow-400 text-yellow-900' : 'bg-gray-300 text-gray-800'
             }`}
           >
@@ -96,15 +96,15 @@ function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick, sco
           </div>
         )}
       </div>
-      <span className="text-white text-xs font-semibold text-center leading-tight max-w-[72px] truncate drop-shadow">
+      <span className="text-white text-[10px] sm:text-xs font-semibold text-center leading-tight max-w-[56px] sm:max-w-[72px] truncate drop-shadow">
         {getLastName(player.name)}
       </span>
       {scored !== undefined ? (
-        <span className={`text-[11px] font-bold ${scored > 0 ? 'text-yellow-300' : 'text-emerald-200/60'}`}>
+        <span className={`text-[9px] sm:text-[11px] font-bold ${scored > 0 ? 'text-yellow-300' : 'text-emerald-200/60'}`}>
           {scored} pts
         </span>
       ) : (
-        <span className="text-emerald-200 text-[10px] font-medium">
+        <span className="text-emerald-200 text-[9px] sm:text-[10px] font-medium">
           {player.token_value} Cr
         </span>
       )}
@@ -155,7 +155,7 @@ export default function PitchView({ players, selectedPlayer, onPlayerClick, capt
                 {roleLabels[role]}
               </span>
               {rolePlayers.length > 0 ? (
-                <div className="flex justify-center gap-5 flex-wrap">
+                <div className="flex justify-center gap-2 sm:gap-5 flex-wrap">
                   {rolePlayers.map((player) => (
                     <PlayerCircle
                       key={player.id}

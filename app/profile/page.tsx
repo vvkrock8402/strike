@@ -14,7 +14,7 @@ export default async function ProfilePage() {
     .maybeSingle()
 
   return (
-    <div className="max-w-md mx-auto px-6 py-8">
+    <div className="max-w-md mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <h1 className="text-2xl font-bold text-white mb-2">Profile</h1>
       <p className="text-gray-400 text-sm mb-8">
         Your display name appears on the leaderboard.

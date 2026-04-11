@@ -30,7 +30,7 @@ export default async function LeaderboardPage({
   ])
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <h1 className="text-2xl font-bold text-white mb-6">Leaderboard</h1>
 
       <div className="flex gap-2 mb-6">
