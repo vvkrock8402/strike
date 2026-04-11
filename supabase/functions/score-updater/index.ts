@@ -42,7 +42,8 @@ function computePoints(stats: {
   run_outs_indirect: number
 }): number {
   let pts = 0
-  pts += stats.runs * 1
+  const nonBoundaryRuns = stats.runs - (stats.fours * 4) - (stats.sixes * 6)
+  pts += nonBoundaryRuns * 1
   pts += stats.fours * 6
   pts += stats.sixes * 8
   if (stats.runs >= 100) pts += 40

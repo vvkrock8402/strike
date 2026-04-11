@@ -3,8 +3,9 @@ import type { PlayerMatchPoints } from './types'
 export function calculatePlayerPoints(stats: PlayerMatchPoints): number {
   let points = 0
 
-  // Batting
-  points += stats.runs * 1
+  // Batting — boundary runs are replaced by flat points (not added on top)
+  const nonBoundaryRuns = stats.runs - (stats.fours * 4) - (stats.sixes * 6)
+  points += nonBoundaryRuns * 1
   points += stats.fours * 6
   points += stats.sixes * 8
 
