@@ -31,6 +31,9 @@ export default async function TransfersPage() {
     .maybeSingle()
 
   const currentSquad: Player[] = []
+  let captainId: string | undefined
+  let viceCaptainId: string | undefined
+
   if (squad) {
     const { data: squadPlayers } = await supabase
       .from('squad_players')
@@ -38,6 +41,18 @@ export default async function TransfersPage() {
       .eq('squad_id', squad.id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     currentSquad.push(...(squadPlayers ?? []).map((sp: any) => sp.players as Player))
+
+    // Fetch captain/VC for the next upcoming match
+    if (nextMatch) {
+      const { data: selections } = await supabase
+        .from('match_selections')
+        .select('player_id, is_captain, is_vice_captain')
+        .eq('squad_id', squad.id)
+        .eq('match_id', nextMatch.id)
+
+      captainId = selections?.find((s: { is_captain: boolean }) => s.is_captain)?.player_id
+      viceCaptainId = selections?.find((s: { is_vice_captain: boolean }) => s.is_vice_captain)?.player_id
+    }
   }
 
   const { data: allPlayers } = await supabase
@@ -92,6 +107,8 @@ export default async function TransfersPage() {
         currentSquad={currentSquad}
         transfersRemaining={transfersRemaining}
         isFirstMatch={isFirstMatch}
+        captainId={captainId}
+        viceCaptainId={viceCaptainId}
       />
     </div>
   )

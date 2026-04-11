@@ -48,12 +48,34 @@ export default function LivePoints({ initialPlayers, matchId }: Props) {
     return sum + applyMultiplier(raw, role)
   }, 0)
 
+  const captain = players.find(p => p.is_captain)
+  const viceCaptain = players.find(p => p.is_vice_captain)
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold text-white">Live Squad Points</h2>
         <span className="text-2xl font-black text-white">{totalMatchPoints} pts</span>
       </div>
+
+      {(captain || viceCaptain) && (
+        <div className="flex gap-3 mb-4">
+          {captain && (
+            <div className="flex items-center gap-2 bg-yellow-950 border border-yellow-800 rounded-lg px-3 py-2 text-sm">
+              <span className="text-yellow-400 font-bold">C</span>
+              <span className="text-white">{captain.name}</span>
+              <span className="text-yellow-400 text-xs font-medium">×2</span>
+            </div>
+          )}
+          {viceCaptain && (
+            <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+              <span className="text-gray-300 font-bold">VC</span>
+              <span className="text-white">{viceCaptain.name}</span>
+              <span className="text-gray-400 text-xs font-medium">×1.5</span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         {players

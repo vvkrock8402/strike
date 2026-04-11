@@ -12,6 +12,8 @@ interface Props {
   currentSquad: Player[]
   transfersRemaining: number
   isFirstMatch: boolean
+  captainId?: string
+  viceCaptainId?: string
 }
 
 const roles: PlayerRole[] = ['keeper', 'batsman', 'allrounder', 'bowler']
@@ -22,7 +24,7 @@ const roleLabels: Record<PlayerRole, string> = {
   bowler: 'BOWL',
 }
 
-export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }: Props) {
+export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch, captainId, viceCaptainId }: Props) {
   const router = useRouter()
   const [squad, setSquad] = useState<Player[]>(currentSquad)
   const [playerOut, setPlayerOut] = useState<Player | null>(null)
@@ -172,6 +174,8 @@ export default function TransferPanel({ allPlayers, currentSquad, isFirstMatch }
           players={squad}
           selectedPlayer={playerOut}
           onPlayerClick={handlePitchClick}
+          captainId={captainId}
+          viceCaptainId={viceCaptainId}
         />
 
         {squad.length === 11 && composition.valid && (
