@@ -10,17 +10,6 @@ export async function POST(req: Request) {
 
   const { playerOutId, playerInId, isFirstMatch, remove } = await req.json()
 
-  const { data: liveMatch } = await supabase
-    .from('matches')
-    .select('id')
-    .eq('status', 'live')
-    .limit(1)
-    .maybeSingle()
-
-  if (liveMatch) {
-    return NextResponse.json({ error: 'Transfers locked during live match' }, { status: 400 })
-  }
-
   let { data: squad } = await supabase
     .from('squads')
     .select('id, transfers_used')

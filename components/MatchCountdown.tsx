@@ -28,10 +28,8 @@ export default function MatchCountdown({ matchDate, teamA, teamB }: Props) {
     return () => clearInterval(timer)
   }, [matchDate])
 
-  const locked = !timeLeft
-
   return (
-    <div className={`rounded-xl border px-5 py-4 mb-6 ${locked ? 'bg-red-950 border-red-800' : 'bg-gray-900 border-gray-800'}`}>
+    <div className="rounded-xl border bg-gray-900 border-gray-800 px-5 py-4 mb-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <p className="text-xs text-gray-500 mb-0.5">Next Match</p>
@@ -43,11 +41,7 @@ export default function MatchCountdown({ matchDate, teamA, teamB }: Props) {
           </p>
         </div>
 
-        {locked ? (
-          <div className="text-red-400 font-semibold text-sm">
-            Team Locked
-          </div>
-        ) : (
+        {timeLeft ? (
           <div className="flex gap-3 text-center">
             {timeLeft.days > 0 && (
               <div>
@@ -74,6 +68,8 @@ export default function MatchCountdown({ matchDate, teamA, teamB }: Props) {
               <p className="text-gray-500 text-[10px] mt-1">SEC</p>
             </div>
           </div>
+        ) : (
+          <div className="text-yellow-400 font-semibold text-sm">Starting soon</div>
         )}
       </div>
     </div>

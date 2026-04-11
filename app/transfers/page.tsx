@@ -63,20 +63,6 @@ export default async function TransfersPage() {
   const transfersRemaining = squad ? 220 - squad.transfers_used : 220
   const isFirstMatch = currentSquad.length < 11
 
-  if (liveMatch) {
-    return (
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <h1 className="text-2xl font-bold text-white mb-4">Transfers</h1>
-        <div className="p-6 bg-red-950 border border-red-800 rounded-xl text-center">
-          <p className="text-red-300 font-semibold text-lg mb-1">Transfers Locked</p>
-          <p className="text-red-400 text-sm">
-            {liveMatch.team_a} vs {liveMatch.team_b} is currently live. Transfers open after the match ends.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-4">
@@ -85,6 +71,11 @@ export default async function TransfersPage() {
           {isFirstMatch && (
             <p className="text-green-400 text-sm mt-1">
               First match — transfers are free! Pick your initial 11.
+            </p>
+          )}
+          {liveMatch && !isFirstMatch && (
+            <p className="text-blue-400 text-sm mt-1">
+              {liveMatch.team_a} vs {liveMatch.team_b} is live — changes apply to your next match.
             </p>
           )}
         </div>

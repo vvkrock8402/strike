@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import MatchStatus from '@/components/MatchStatus'
+import MatchCountdown from '@/components/MatchCountdown'
 import LivePoints from '@/components/LivePoints'
 import Link from 'next/link'
 import type { Player, PlayerMatchPoints } from '@/lib/types'
@@ -34,6 +35,14 @@ export default async function DashboardPage() {
     .from('matches')
     .select('*')
     .in('status', ['upcoming', 'live'])
+    .order('match_date', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  const { data: nextUpcomingMatch } = await supabase
+    .from('matches')
+    .select('id, team_a, team_b, match_date')
+    .eq('status', 'upcoming')
     .order('match_date', { ascending: true })
     .limit(1)
     .maybeSingle()
@@ -103,6 +112,13 @@ export default async function DashboardPage() {
         </div>
       )}
       <MatchStatus initialMatch={nextMatch ?? null} />
+      {nextUpcomingMatch && (
+        <MatchCountdown
+          matchDate={nextUpcomingMatch.match_date}
+          teamA={nextUpcomingMatch.team_a}
+          teamB={nextUpcomingMatch.team_b}
+        />
+      )}
       <LivePoints initialPlayers={playersWithData} matchId={nextMatch?.id ?? null} />
 
       <div>
