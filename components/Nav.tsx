@@ -19,6 +19,7 @@ export default async function Nav() {
         <Link href="/leaderboard" className="hover:text-white transition-colors">Leaderboard</Link>
         <Link href="/leagues" className="hover:text-white transition-colors">Leagues</Link>
         <Link href="/players" className="hover:text-white transition-colors">Players</Link>
+        <Link href="/profile" className="hover:text-white transition-colors">Profile</Link>
       </div>
       <form action="/api/auth/signout" method="post" className="ml-auto">
         <button type="submit" className="text-sm text-gray-400 hover:text-white transition-colors">

@@ -1,6 +1,7 @@
 interface Row {
   user_id: string
   email: string
+  display_name?: string | null
   total_points?: number
   match_points?: number
 }
@@ -23,25 +24,28 @@ export default function LeaderboardTable({ rows, pointsKey, currentUserId }: Pro
         <span className="col-span-9">Player</span>
         <span className="col-span-2 text-right">Pts</span>
       </div>
-      {rows.map((row, i) => (
-        <div
-          key={row.user_id}
-          className={`grid grid-cols-12 px-4 py-3 items-center ${
-            i < rows.length - 1 ? 'border-b border-gray-800' : ''
-          } ${row.user_id === currentUserId ? 'bg-blue-950' : ''}`}
-        >
-          <span className="col-span-1 text-gray-500 text-sm font-medium">{i + 1}</span>
-          <span className="col-span-9 text-white text-sm">
-            {row.email}
-            {row.user_id === currentUserId && (
-              <span className="ml-2 text-blue-400 text-xs">(you)</span>
-            )}
-          </span>
-          <span className="col-span-2 text-white font-bold text-sm text-right">
-            {row[pointsKey] ?? 0}
-          </span>
-        </div>
-      ))}
+      {rows.map((row, i) => {
+        const displayName = row.display_name ?? row.email.split('@')[0]
+        return (
+          <div
+            key={row.user_id}
+            className={`grid grid-cols-12 px-4 py-3 items-center ${
+              i < rows.length - 1 ? 'border-b border-gray-800' : ''
+            } ${row.user_id === currentUserId ? 'bg-blue-950' : ''}`}
+          >
+            <span className="col-span-1 text-gray-500 text-sm font-medium">{i + 1}</span>
+            <span className="col-span-9 text-white text-sm">
+              {displayName}
+              {row.user_id === currentUserId && (
+                <span className="ml-2 text-blue-400 text-xs">(you)</span>
+              )}
+            </span>
+            <span className="col-span-2 text-white font-bold text-sm text-right">
+              {row[pointsKey] ?? 0}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
