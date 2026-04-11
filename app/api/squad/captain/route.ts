@@ -27,6 +27,32 @@ export async function POST(req: Request) {
 
   if (!squad) return NextResponse.json({ error: 'No squad found' }, { status: 404 })
 
+  // Ensure match_selections rows exist for this squad + match
+  const { data: existing } = await supabase
+    .from('match_selections')
+    .select('player_id')
+    .eq('squad_id', squad.id)
+    .eq('match_id', matchId)
+
+  if (!existing || existing.length === 0) {
+    const { data: squadPlayers } = await supabase
+      .from('squad_players')
+      .select('player_id')
+      .eq('squad_id', squad.id)
+
+    const rows = (squadPlayers ?? []).map((sp: { player_id: string }) => ({
+      squad_id: squad.id,
+      match_id: matchId,
+      player_id: sp.player_id,
+      is_captain: false,
+      is_vice_captain: false,
+    }))
+
+    if (rows.length > 0) {
+      await supabase.from('match_selections').insert(rows)
+    }
+  }
+
   if (type === 'captain') {
     await supabase
       .from('match_selections')
