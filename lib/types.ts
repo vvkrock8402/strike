@@ -7,6 +7,7 @@ export interface Player {
   ipl_team: string
   role: PlayerRole
   token_value: number
+  image_url?: string
 }
 
 export interface Squad {

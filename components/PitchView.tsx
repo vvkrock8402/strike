@@ -52,6 +52,13 @@ function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick }: P
   const initials = getInitials(player.name)
   const avatarColor = roleAvatarColors[player.role] ?? 'bg-gray-600'
   const badgeColor = teamBadgeColors[player.ipl_team] ?? 'bg-gray-600'
+  const ringClass = selected
+    ? 'ring-4 ring-yellow-400 opacity-80'
+    : isCaptain
+    ? 'ring-4 ring-yellow-400'
+    : isViceCaptain
+    ? 'ring-4 ring-gray-300'
+    : 'ring-2 ring-white/40 group-hover:ring-white/80'
 
   return (
     <div
@@ -60,17 +67,14 @@ function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick }: P
     >
       <div className="relative">
         <div
-          className={`w-14 h-14 rounded-full ${avatarColor} flex items-center justify-center text-white font-bold text-sm transition-all group-hover:scale-110 ${
-            selected
-              ? 'ring-4 ring-yellow-400 opacity-80'
-              : isCaptain
-              ? 'ring-4 ring-yellow-400'
-              : isViceCaptain
-              ? 'ring-4 ring-gray-300'
-              : 'ring-2 ring-white/40 group-hover:ring-white/80'
-          }`}
+          className={`w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm transition-all group-hover:scale-110 ${player.image_url ? 'bg-gray-700' : avatarColor} ${ringClass}`}
         >
-          {initials}
+          {player.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={player.image_url} alt={player.name} className="w-full h-full object-cover object-top" />
+          ) : (
+            initials
+          )}
         </div>
         {/* Team badge */}
         <div
