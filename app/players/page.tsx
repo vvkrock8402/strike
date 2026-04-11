@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import PlayerCard from '@/components/PlayerCard'
 import type { Player, PlayerRole } from '@/lib/types'
 
+export const revalidate = 3600 // player list rarely changes
+
 const roles: PlayerRole[] = ['keeper', 'batsman', 'allrounder', 'bowler']
 
 export default async function PlayersPage() {

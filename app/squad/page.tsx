@@ -19,24 +19,15 @@ export default async function SquadPage() {
 
   if (!squad) redirect('/transfers')
 
-  const { data: liveMatch } = await supabase
-    .from('matches')
-    .select('id, team_a, team_b, status')
-    .eq('status', 'live')
-    .maybeSingle()
-
-  const { data: nextUpcomingMatch } = await supabase
-    .from('matches')
-    .select('id, team_a, team_b, match_date, status')
-    .eq('status', 'upcoming')
-    .order('match_date', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  const { data: squadPlayers } = await supabase
-    .from('squad_players')
-    .select('player_id, players(*)')
-    .eq('squad_id', squad.id)
+  const [
+    { data: liveMatch },
+    { data: nextUpcomingMatch },
+    { data: squadPlayers },
+  ] = await Promise.all([
+    supabase.from('matches').select('id, team_a, team_b, status').eq('status', 'live').maybeSingle(),
+    supabase.from('matches').select('id, team_a, team_b, match_date, status').eq('status', 'upcoming').order('match_date', { ascending: true }).limit(1).maybeSingle(),
+    supabase.from('squad_players').select('player_id, players(*)').eq('squad_id', squad.id),
+  ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const players = (squadPlayers ?? []).map((sp: any) => sp.players as Player)

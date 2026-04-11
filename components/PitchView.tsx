@@ -72,7 +72,7 @@ function PlayerCircle({ player, selected, isCaptain, isViceCaptain, onClick, sco
         >
           {player.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={player.image_url} alt={player.name} className="w-full h-full object-cover object-top" />
+            <img src={player.image_url} alt={player.name} className="w-full h-full object-cover object-top" loading="lazy" decoding="async" />
           ) : (
             initials
           )}

@@ -9,56 +9,36 @@ export default async function TransfersPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: liveMatch } = await supabase
-    .from('matches')
-    .select('id, team_a, team_b')
-    .eq('status', 'live')
-    .maybeSingle()
-
-  const { data: nextMatch } = await supabase
-    .from('matches')
-    .select('id, team_a, team_b, match_date')
-    .eq('status', 'upcoming')
-    .order('match_date', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  const { data: squad } = await supabase
-    .from('squads')
-    .select('id, transfers_used')
-    .eq('user_id', user.id)
-    .eq('season', 2026)
-    .maybeSingle()
+  // Run all independent queries in parallel
+  const [
+    { data: liveMatch },
+    { data: nextMatch },
+    { data: squad },
+    { data: allPlayers },
+  ] = await Promise.all([
+    supabase.from('matches').select('id, team_a, team_b').eq('status', 'live').maybeSingle(),
+    supabase.from('matches').select('id, team_a, team_b, match_date').eq('status', 'upcoming').order('match_date', { ascending: true }).limit(1).maybeSingle(),
+    supabase.from('squads').select('id, transfers_used').eq('user_id', user.id).eq('season', 2026).maybeSingle(),
+    supabase.from('players').select('*').order('token_value', { ascending: false }),
+  ])
 
   const currentSquad: Player[] = []
   let captainId: string | undefined
   let viceCaptainId: string | undefined
 
   if (squad) {
-    const { data: squadPlayers } = await supabase
-      .from('squad_players')
-      .select('player_id, players(*)')
-      .eq('squad_id', squad.id)
+    // Fetch squad players and captain selections in parallel
+    const [{ data: squadPlayers }, { data: selections }] = await Promise.all([
+      supabase.from('squad_players').select('player_id, players(*)').eq('squad_id', squad.id),
+      nextMatch
+        ? supabase.from('match_selections').select('player_id, is_captain, is_vice_captain').eq('squad_id', squad.id).eq('match_id', nextMatch.id)
+        : Promise.resolve({ data: [] }),
+    ])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     currentSquad.push(...(squadPlayers ?? []).map((sp: any) => sp.players as Player))
-
-    // Fetch captain/VC for the next upcoming match
-    if (nextMatch) {
-      const { data: selections } = await supabase
-        .from('match_selections')
-        .select('player_id, is_captain, is_vice_captain')
-        .eq('squad_id', squad.id)
-        .eq('match_id', nextMatch.id)
-
-      captainId = selections?.find((s: { is_captain: boolean }) => s.is_captain)?.player_id
-      viceCaptainId = selections?.find((s: { is_vice_captain: boolean }) => s.is_vice_captain)?.player_id
-    }
+    captainId = (selections ?? []).find((s: { is_captain: boolean }) => s.is_captain)?.player_id
+    viceCaptainId = (selections ?? []).find((s: { is_vice_captain: boolean }) => s.is_vice_captain)?.player_id
   }
-
-  const { data: allPlayers } = await supabase
-    .from('players')
-    .select('*')
-    .order('token_value', { ascending: false })
 
   const transfersRemaining = squad ? 220 - squad.transfers_used : 220
   const isFirstMatch = currentSquad.length < 11

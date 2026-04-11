@@ -12,12 +12,22 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: squad } = await supabase
-    .from('squads')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('season', 2026)
-    .maybeSingle()
+  // Run all independent queries in parallel
+  const [
+    { data: squad },
+    { data: nextMatch },
+    { data: nextUpcomingMatch },
+    { data: lastMatch },
+    { data: leaderboard },
+    { data: profile },
+  ] = await Promise.all([
+    supabase.from('squads').select('id').eq('user_id', user.id).eq('season', 2026).maybeSingle(),
+    supabase.from('matches').select('*').in('status', ['upcoming', 'live']).order('match_date', { ascending: true }).limit(1).maybeSingle(),
+    supabase.from('matches').select('id, team_a, team_b, match_date').eq('status', 'upcoming').order('match_date', { ascending: true }).limit(1).maybeSingle(),
+    supabase.from('matches').select('id, team_a, team_b, result').eq('status', 'completed').not('result', 'is', null).order('match_date', { ascending: false }).limit(1).maybeSingle(),
+    supabase.rpc('get_season_leaderboard'),
+    supabase.from('profiles').select('display_name').eq('user_id', user.id).maybeSingle(),
+  ])
 
   if (!squad) {
     return (
@@ -31,37 +41,11 @@ export default async function DashboardPage() {
     )
   }
 
-  const { data: nextMatch } = await supabase
-    .from('matches')
-    .select('*')
-    .in('status', ['upcoming', 'live'])
-    .order('match_date', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  const { data: nextUpcomingMatch } = await supabase
-    .from('matches')
-    .select('id, team_a, team_b, match_date')
-    .eq('status', 'upcoming')
-    .order('match_date', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  const { data: lastMatch } = await supabase
-    .from('matches')
-    .select('id, team_a, team_b, result')
-    .eq('status', 'completed')
-    .not('result', 'is', null)
-    .order('match_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
   type PlayerWithData = Player & { is_captain: boolean; is_vice_captain: boolean; points?: PlayerMatchPoints }
   let playersWithData: PlayerWithData[] = []
 
   if (nextMatch?.status === 'live') {
     // Live match: read the snapshotted match_selections (not squad_players)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: liveSelections } = await supabase
       .from('match_selections')
       .select('player_id, is_captain, is_vice_captain, players(*)')
@@ -70,11 +54,7 @@ export default async function DashboardPage() {
 
     const playerIds = (liveSelections ?? []).map((s: { player_id: string }) => s.player_id)
     const { data: points } = playerIds.length > 0
-      ? await supabase
-          .from('player_match_points')
-          .select('*')
-          .eq('match_id', nextMatch.id)
-          .in('player_id', playerIds)
+      ? await supabase.from('player_match_points').select('*').eq('match_id', nextMatch.id).in('player_id', playerIds)
       : { data: [] }
 
     const ptMap = new Map((points ?? []).map((pt: PlayerMatchPoints) => [pt.player_id, pt]))
@@ -86,49 +66,36 @@ export default async function DashboardPage() {
       points: ptMap.get(s.player_id),
     }))
   } else {
-    // Upcoming or no match: use squad_players
-    const { data: squadPlayers } = await supabase
-      .from('squad_players')
-      .select('player_id, players(*)')
-      .eq('squad_id', squad.id)
+    // Upcoming or no match: fetch squad players + selections + points in parallel
+    const [{ data: squadPlayers }, selectionsResult] = await Promise.all([
+      supabase.from('squad_players').select('player_id, players(*)').eq('squad_id', squad.id),
+      nextMatch
+        ? supabase.from('match_selections').select('player_id, is_captain, is_vice_captain').eq('squad_id', squad.id).eq('match_id', nextMatch.id)
+        : Promise.resolve({ data: [] }),
+    ])
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const players = (squadPlayers ?? []).map((sp: any) => sp.players as Player)
-    playersWithData = players.map(p => ({ ...p, is_captain: false, is_vice_captain: false }))
+    const selMap = new Map(((selectionsResult.data ?? []) as { player_id: string; is_captain: boolean; is_vice_captain: boolean }[]).map(s => [s.player_id, s]))
 
-    if (nextMatch) {
-      const [{ data: selections }, { data: points }] = await Promise.all([
-        supabase
-          .from('match_selections')
-          .select('player_id, is_captain, is_vice_captain')
-          .eq('squad_id', squad.id)
-          .eq('match_id', nextMatch.id),
-        supabase
-          .from('player_match_points')
-          .select('*')
-          .eq('match_id', nextMatch.id)
-          .in('player_id', players.map(p => p.id)),
-      ])
+    if (nextMatch && players.length > 0) {
+      const { data: points } = await supabase
+        .from('player_match_points')
+        .select('*')
+        .eq('match_id', nextMatch.id)
+        .in('player_id', players.map(p => p.id))
 
-      const selMap = new Map((selections ?? []).map((s: { player_id: string; is_captain: boolean; is_vice_captain: boolean }) => [s.player_id, s]))
       const ptMap = new Map((points ?? []).map((pt: PlayerMatchPoints) => [pt.player_id, pt]))
-
       playersWithData = players.map(p => ({
         ...p,
         is_captain: selMap.get(p.id)?.is_captain ?? false,
         is_vice_captain: selMap.get(p.id)?.is_vice_captain ?? false,
         points: ptMap.get(p.id),
       }))
+    } else {
+      playersWithData = players.map(p => ({ ...p, is_captain: false, is_vice_captain: false }))
     }
   }
-
-  const { data: leaderboard } = await supabase.rpc('get_season_leaderboard')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name')
-    .eq('user_id', user.id)
-    .maybeSingle()
 
   return (
     <DashboardClient hasDisplayName={!!profile?.display_name}>
