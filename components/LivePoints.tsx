@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { calculatePlayerPoints, applyMultiplier } from '@/lib/scoring'
 import PitchView from './PitchView'
+import Link from 'next/link'
 import type { Player, PlayerMatchPoints } from '@/lib/types'
 
 interface PlayerWithSelection extends Player {
@@ -15,9 +16,10 @@ interface PlayerWithSelection extends Player {
 interface Props {
   initialPlayers: PlayerWithSelection[]
   matchId: string | null
+  isLive?: boolean
 }
 
-export default function LivePoints({ initialPlayers, matchId }: Props) {
+export default function LivePoints({ initialPlayers, matchId, isLive }: Props) {
   const [players, setPlayers] = useState(initialPlayers)
 
   useEffect(() => {
@@ -87,6 +89,24 @@ export default function LivePoints({ initialPlayers, matchId }: Props) {
             </div>
           )}
         </div>
+      )}
+
+      {matchId && !captain && !viceCaptain && (
+        isLive ? (
+          <div className="flex items-center gap-2 mb-4 p-3 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-400">
+            <span className="font-bold text-gray-500">C</span>
+            <span>No captain was set before this match started — no multipliers applied</span>
+          </div>
+        ) : (
+          <Link
+            href="/squad"
+            className="flex items-center gap-2 mb-4 p-3 bg-yellow-950 border border-yellow-800 rounded-xl text-sm text-yellow-300 hover:bg-yellow-900 transition-colors"
+          >
+            <span className="font-bold">C</span>
+            <span className="flex-1">No captain set for this match — tap here to set your Captain &amp; Vice Captain</span>
+            <span className="text-yellow-500">→</span>
+          </Link>
+        )
       )}
 
       <PitchView

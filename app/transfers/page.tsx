@@ -19,7 +19,7 @@ export default async function TransfersPage() {
     supabase.from('matches').select('id, team_a, team_b').eq('status', 'live').maybeSingle(),
     supabase.from('matches').select('id, team_a, team_b, match_date').eq('status', 'upcoming').order('match_date', { ascending: true }).limit(1).maybeSingle(),
     supabase.from('squads').select('id, transfers_used').eq('user_id', user.id).eq('season', 2026).maybeSingle(),
-    supabase.from('players').select('*').order('token_value', { ascending: false }),
+    supabase.from('players').select('*').neq('ipl_team', 'RETIRED').order('token_value', { ascending: false }),
   ])
 
   const currentSquad: Player[] = []

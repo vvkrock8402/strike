@@ -52,14 +52,33 @@ export default async function DashboardPage() {
       .eq('squad_id', squad.id)
       .eq('match_id', nextMatch.id)
 
-    const playerIds = (liveSelections ?? []).map((s: { player_id: string }) => s.player_id)
+    // If no snapshot exists (captain API was never called before match went live),
+    // fall back to squad_players so the pitch isn't empty
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolvedSelections: { player_id: string; is_captain: boolean; is_vice_captain: boolean; players: any }[] = []
+    if (liveSelections && liveSelections.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      resolvedSelections = liveSelections as any
+    } else {
+      const { data: squadPlayers } = await supabase
+        .from('squad_players')
+        .select('player_id, players(*)')
+        .eq('squad_id', squad.id)
+      resolvedSelections = (squadPlayers ?? []).map((sp: any) => ({
+        player_id: sp.player_id,
+        is_captain: false,
+        is_vice_captain: false,
+        players: sp.players,
+      }))
+    }
+
+    const playerIds = resolvedSelections.map(s => s.player_id)
     const { data: points } = playerIds.length > 0
       ? await supabase.from('player_match_points').select('*').eq('match_id', nextMatch.id).in('player_id', playerIds)
       : { data: [] }
 
     const ptMap = new Map((points ?? []).map((pt: PlayerMatchPoints) => [pt.player_id, pt]))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    playersWithData = (liveSelections ?? []).map((s: any) => ({
+    playersWithData = resolvedSelections.map(s => ({
       ...(s.players as Player),
       is_captain: s.is_captain,
       is_vice_captain: s.is_vice_captain,
@@ -109,14 +128,14 @@ export default async function DashboardPage() {
         </div>
       )}
       <MatchStatus initialMatch={nextMatch ?? null} />
-      {nextUpcomingMatch && (
+      {nextMatch?.status === 'live' && nextUpcomingMatch && (
         <MatchCountdown
           matchDate={nextUpcomingMatch.match_date}
           teamA={nextUpcomingMatch.team_a}
           teamB={nextUpcomingMatch.team_b}
         />
       )}
-      <LivePoints initialPlayers={playersWithData} matchId={nextMatch?.id ?? null} />
+      <LivePoints initialPlayers={playersWithData} matchId={nextMatch?.id ?? null} isLive={nextMatch?.status === 'live'} />
 
       <div>
         <div className="flex items-center justify-between mb-4">

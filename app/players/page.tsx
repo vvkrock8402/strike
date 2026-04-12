@@ -11,6 +11,7 @@ export default async function PlayersPage() {
   const { data: players } = await supabase
     .from('players')
     .select('*')
+    .neq('ipl_team', 'RETIRED')
     .order('token_value', { ascending: false })
 
   const grouped = roles.reduce((acc, role) => {

@@ -41,6 +41,9 @@ export default function SquadGrid({ players, matchId, matchLocked, tokenTotal, t
           ...p,
           is_captain: type === 'captain' ? p.id === playerId : p.is_captain,
           is_vice_captain: type === 'vice_captain' ? p.id === playerId : p.is_vice_captain,
+          // Clear the opposite role if same player was holding it
+          ...(type === 'captain' && p.id !== playerId ? { is_captain: false } : {}),
+          ...(type === 'vice_captain' && p.id !== playerId ? { is_vice_captain: false } : {}),
         }))
       )
     }
