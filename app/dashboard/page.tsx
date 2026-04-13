@@ -127,7 +127,7 @@ export default async function DashboardPage() {
           <p className="text-white font-bold text-lg">{lastMatch.result ?? 'Match completed'}</p>
         </div>
       )}
-      {nextMatch?.status === 'live' && <MatchStatus initialMatch={nextMatch} />}
+      <MatchStatus initialMatch={nextMatch ?? null} />
       {nextUpcomingMatch && (
         <MatchCountdown
           matchDate={nextUpcomingMatch.match_date}

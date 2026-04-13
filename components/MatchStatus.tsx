@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Match } from '@/lib/types'
 
@@ -10,6 +11,7 @@ interface Props {
 
 export default function MatchStatus({ initialMatch }: Props) {
   const [match, setMatch] = useState(initialMatch)
+  const router = useRouter()
 
   useEffect(() => {
     if (!match) return
@@ -23,7 +25,10 @@ export default function MatchStatus({ initialMatch }: Props) {
         table: 'matches',
         filter: `id=eq.${matchId}`,
       }, payload => {
-        setMatch(payload.new as Match)
+        const updated = payload.new as Match
+        setMatch(updated)
+        // Reload server component data so nextUpcomingMatch, live squad, etc. all update
+        router.refresh()
       })
       .subscribe()
 
@@ -31,13 +36,8 @@ export default function MatchStatus({ initialMatch }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match?.id])
 
-  if (!match) {
-    return (
-      <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl text-center">
-        <p className="text-gray-500">No upcoming match scheduled</p>
-      </div>
-    )
-  }
+  // When upcoming: render nothing but keep subscription alive so we react when it goes live
+  if (!match || match.status === 'upcoming') return null
 
   return (
     <div className={`p-4 rounded-xl border ${match.status === 'live' ? 'bg-red-950 border-red-800' : 'bg-gray-900 border-gray-800'}`}>
