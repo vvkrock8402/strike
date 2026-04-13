@@ -71,6 +71,50 @@ async function fetchScorecard(rapidapiMatchId: string): Promise<ScorecardRespons
   return res.json()
 }
 
+const MATCH_DURATION_MS = 4 * 60 * 60 * 1000 // 4 hours — typical IPL match window
+
+async function updateMatchStatusByTime(
+  match: { id: string; status: string; match_date: string },
+  now: number,
+  results: string[]
+) {
+  const startMs = new Date(match.match_date).getTime()
+  const endMs = startMs + MATCH_DURATION_MS
+
+  if (now >= endMs && match.status !== 'completed') {
+    await supabase.from('matches').update({ status: 'completed' }).eq('id', match.id)
+    results.push(`Match ${match.id}: time-based → completed`)
+  } else if (now >= startMs && now < endMs && match.status === 'upcoming') {
+    await supabase.from('matches').update({ status: 'live' }).eq('id', match.id)
+
+    // Snapshot squads into match_selections
+    const { data: squads } = await supabase.from('squads').select('id').eq('season', 2026)
+    for (const squad of squads ?? []) {
+      const { data: existing } = await supabase
+        .from('match_selections')
+        .select('player_id')
+        .eq('squad_id', squad.id)
+        .eq('match_id', match.id)
+        .limit(1)
+      if (!existing || existing.length === 0) {
+        const { data: squadPlayers } = await supabase
+          .from('squad_players')
+          .select('player_id')
+          .eq('squad_id', squad.id)
+        const rows = (squadPlayers ?? []).map((sp: { player_id: string }) => ({
+          squad_id: squad.id,
+          match_id: match.id,
+          player_id: sp.player_id,
+          is_captain: false,
+          is_vice_captain: false,
+        }))
+        if (rows.length > 0) await supabase.from('match_selections').insert(rows)
+      }
+    }
+    results.push(`Match ${match.id}: time-based → live, snapshots created`)
+  }
+}
+
 Deno.serve(async (_req) => {
   const { data: allMatches } = await supabase
     .from('matches')
@@ -86,7 +130,7 @@ Deno.serve(async (_req) => {
   const matches = (allMatches ?? []).filter((m: { status: string; match_date: string }) => {
     if (m.status === 'live') return true
     const startsIn = new Date(m.match_date).getTime() - now
-    return startsIn <= thirtyMin
+    return startsIn <= thirtyMin && new Date(m.match_date).getTime() + MATCH_DURATION_MS > now - thirtyMin
   })
 
   if (matches.length === 0) {
@@ -98,8 +142,18 @@ Deno.serve(async (_req) => {
   const results: string[] = []
 
   for (const match of matches) {
+    // No RapidAPI ID — fall back to time-based status
+    if (!match.rapidapi_match_id) {
+      await updateMatchStatusByTime(match, now, results)
+      continue
+    }
+
     const scorecard = await fetchScorecard(match.rapidapi_match_id)
-    if (!scorecard) continue
+    if (!scorecard) {
+      // RapidAPI call failed — also fall back to time-based
+      await updateMatchStatusByTime(match, now, results)
+      continue
+    }
 
     const isComplete = scorecard.ismatchcomplete === true
     const statusText = (scorecard.status ?? '').toLowerCase()
