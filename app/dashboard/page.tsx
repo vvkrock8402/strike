@@ -24,7 +24,7 @@ export default async function DashboardPage() {
     supabase.from('squads').select('id').eq('user_id', user.id).eq('season', 2026).maybeSingle(),
     supabase.from('matches').select('*').in('status', ['upcoming', 'live']).order('match_date', { ascending: true }).limit(1).maybeSingle(),
     supabase.from('matches').select('id, team_a, team_b, match_date').eq('status', 'upcoming').order('match_date', { ascending: true }).limit(1).maybeSingle(),
-    supabase.from('matches').select('id, team_a, team_b, result').eq('status', 'completed').not('result', 'is', null).order('match_date', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('matches').select('id, team_a, team_b, result').eq('status', 'completed').order('match_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.rpc('get_season_leaderboard'),
     supabase.from('profiles').select('display_name').eq('user_id', user.id).maybeSingle(),
   ])
@@ -119,16 +119,16 @@ export default async function DashboardPage() {
   return (
     <DashboardClient hasDisplayName={!!profile?.display_name}>
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
-      {lastMatch?.result && (
+      {lastMatch && (
         <div className="bg-green-950 border border-green-800 rounded-xl px-5 py-4">
           <p className="text-green-400 text-xs font-semibold uppercase tracking-widest mb-1">
-            Match Result — {lastMatch.team_a} vs {lastMatch.team_b}
+            Last Result — {lastMatch.team_a} vs {lastMatch.team_b}
           </p>
-          <p className="text-white font-bold text-lg">{lastMatch.result}</p>
+          <p className="text-white font-bold text-lg">{lastMatch.result ?? 'Match completed'}</p>
         </div>
       )}
-      <MatchStatus initialMatch={nextMatch ?? null} />
-      {nextMatch?.status === 'live' && nextUpcomingMatch && (
+      {nextMatch?.status === 'live' && <MatchStatus initialMatch={nextMatch} />}
+      {nextUpcomingMatch && (
         <MatchCountdown
           matchDate={nextUpcomingMatch.match_date}
           teamA={nextUpcomingMatch.team_a}
